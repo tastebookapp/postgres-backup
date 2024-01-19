@@ -1,7 +1,8 @@
-import { exec } from "child_process";
+import { exec, execSync } from "child_process";
 import { Storage, UploadOptions } from "@google-cloud/storage";
-import { unlink } from "fs";
-
+import { unlink, statSync } from "fs";
+import { filesize } from "filesize";
+import path from "path";
 import { env } from "./env";
 
 const uploadToGCS = async ({ name, path }: { name: string; path: string }) => {
@@ -23,21 +24,38 @@ const uploadToGCS = async ({ name, path }: { name: string; path: string }) => {
   console.log("Backup uploaded to GCS...");
 };
 
-const dumpToFile = async (path: string) => {
+const dumpToFile = async (filePath: string) => {
   console.log("Dumping DB to file...");
 
   await new Promise((resolve, reject) => {
-    exec(
-      `pg_dump ${env.BACKUP_DATABASE_URL} -F t | gzip > ${path}`,
-      (error, _, stderr) => {
-        if (error) {
-          reject({ error: JSON.stringify(error), stderr });
-          return;
-        }
-
-        resolve(undefined);
+    exec(`pg_dump --dbname=${env.BACKUP_DATABASE_URL} --format=tar | gzip > ${filePath}`, (error, stdout, stderr) => {
+      if (error) {
+        reject({ error: error, stderr: stderr.trimEnd() });
+        return;
       }
-    );
+
+      // check if archive is valid and contains data
+      const isValidArchive = (execSync(`gzip -cd ${filePath} | head -c1`).length == 1) ? true : false;
+      if (isValidArchive == false) {
+        reject({ error: "Backup archive file is invalid or empty; check for errors above" });
+        return;
+      }
+
+      // not all text in stderr will be a critical error, print the error / warning
+      if (stderr != "") {
+        console.log({ stderr: stderr.trimEnd() });
+      }
+
+      console.log("Backup archive file is valid");
+      console.log("Backup filesize:", filesize(statSync(filePath).size));
+
+      // if stderr contains text, let the user know that it was potently just a warning message
+      if (stderr != "") {
+        console.log(`Potential warnings detected; Please ensure the backup file "${path.basename(filePath)}" contains all needed data`);
+      }
+
+      resolve(undefined);
+    });
   });
 
   console.log("DB dumped to file...");

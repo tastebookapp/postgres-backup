@@ -17,7 +17,9 @@
   "dependencies": {
     "@google-cloud/storage": "^7.2.0",
     "cron": "^2.1.0",
-    "envsafe": "^2.0.3"
+    "envsafe": "^2.0.3",
+    "filesize": "^10.1.0",
+    "path": "^0.12.7"
   },
   "keywords": []
 }
