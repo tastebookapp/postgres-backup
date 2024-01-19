@@ -1,4 +1,4 @@
-FROM alpine:3.14 AS build
+FROM alpine:3.19 AS build
 
 WORKDIR /root
 
@@ -12,7 +12,7 @@ RUN npm install
 RUN npm run build
 RUN npm prune --production
 
-FROM alpine:3.14
+FROM alpine:3.19
 
 WORKDIR /root
 
@@ -21,4 +21,4 @@ COPY --from=build /root/dist ./dist
 
 RUN apk add --update --no-cache postgresql-client nodejs npm
 
-ENTRYPOINT ["node", "dist/index.js"]
+CMD ["node", "dist/index.js"]
